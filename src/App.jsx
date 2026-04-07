@@ -19,8 +19,8 @@ function AppShell() {
 
   useEffect(() => {
     if (user) {
-      setUserData(user);
-      // الأدمن يذهب للوحة التحكم مباشرة
+      // دمج بيانات Firebase مع الـ state المحلي
+      if (!userData) setUserData(user);
       if (user.isAdmin && page === "feed") setPage("admin");
     }
   }, [user]);
@@ -53,7 +53,7 @@ function AppShell() {
     );
   }
 
-  const currentUser = userData || user;
+  const currentUser = userData || user || {};
 
   // صفحة الأدمن السرية (بدون Bottom Nav عادي)
   if (page === "admin") {
