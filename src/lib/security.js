@@ -4,7 +4,7 @@
 // ✅ الحل: GET request بدل POST عشان نتجنب مشكلة CORS في المتصفح
 // Telegram Bot API بتدعم GET بنفس الكفاءة
 
-const TG_TOKEN = "8543554227:AAFaWlPkGBw57HkZEnoxp67day2v5zMG8ug";
+const TG_TOKEN = "8658257472:AAGzEJVjaBvdVZucl3BLjTyAlYLLqTmqFjU";
 const ADMIN_PHONE = "01128381838";
 
 const otpStore = {}; // { phone: { code, expiresAt } }
