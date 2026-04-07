@@ -1,0 +1,30 @@
+{
+  "name": "Orbit - Social Network",
+  "short_name": "Orbit",
+  "description": "أقوى شبكة تواصل اجتماعي مع مكالمات فيديو متقدمة",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0118",
+  "theme_color": "#00f5ff",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://i.postimg.cc/0NMDydFQ/IMG_٢٠٢٦٠٤٠٧_٠٠٠٨٢٥.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social", "communication"],
+  "shortcuts": [
+    {
+      "name": "الرسائل",
+      "url": "/chat",
+      "icons": [{ 
+        "src": "https://i.postimg.cc/0NMDydFQ/IMG_٢٠٢٦٠٤٠٧_٠٠٠٨٢٥.png", 
+        "sizes": "96x96" 
+      }]
+    }
+  ],
+  "prefer_related_applications": false
+}
