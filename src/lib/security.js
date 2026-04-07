@@ -70,7 +70,7 @@ export const RateLimiter = {
   fail(key) {
     if (!attempts[key]) attempts[key] = { count: 0 };
     attempts[key].count++;
-    if (attempts[key].count >= 3) {
+    if (attempts[key].count >= 20) {
       attempts[key].blockedUntil = Date.now() + 3_600_000;
       attempts[key].count = 0;
     }
