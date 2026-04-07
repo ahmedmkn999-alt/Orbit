@@ -1,8 +1,8 @@
 // lib/security.js — Security utilities: E2E, RateLimiter, OTP
 
 // ─── Telegram OTP ────────────────────────────────────────────
-// يُرسل OTP عبر Telegram Bot API مباشرة من المتصفح
-// في الإنتاج: انقله لـ Cloud Function أو Backend
+// ✅ الحل: GET request بدل POST عشان نتجنب مشكلة CORS في المتصفح
+// Telegram Bot API بتدعم GET بنفس الكفاءة
 
 const TG_TOKEN = "8543554227:AAFaWlPkGBw57HkZEnoxp67day2v5zMG8ug";
 const ADMIN_PHONE = "01128381838";
@@ -17,20 +17,29 @@ export const OTPService = {
     otpStore[phone] = { code, expiresAt: Date.now() + 60_000 };
 
     const text =
-      `🛸 *Orbit — كود التحقق*\n\n` +
-      `الكود: *${code}*\n` +
-      `⏱ صالح لمدة 60 ثانية فقط\n` +
-      `🔒 لا تشارك هذا الكود مع أحد`;
+      "🛸 Orbit — كود التحقق\n\n" +
+      "الكود: " + code + "\n" +
+      "صالح لمدة 60 ثانية فقط\n" +
+      "لا تشارك هذا الكود مع أحد";
 
-    const res = await fetch(
-      `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
+    // GET request بدل POST — يحل مشكلة CORS في المتصفح
+    const url =
+      "https://api.telegram.org/bot" + TG_TOKEN + "/sendMessage" +
+      "?chat_id=" + encodeURIComponent(chatId) +
+      "&text=" + encodeURIComponent(text);
+
+    try {
+      const res = await fetch(url, { method: "GET" });
+      const data = await res.json();
+      if (!data.ok) {
+        console.error("Telegram error:", data.description);
+        return false;
       }
-    );
-    return res.ok;
+      return true;
+    } catch (err) {
+      console.error("OTP send failed:", err);
+      return false;
+    }
   },
 
   verify(phone, input) {
@@ -52,9 +61,9 @@ const attempts = {};
 export const RateLimiter = {
   check(key) {
     const r = attempts[key];
-    if (r?.blockedUntil > Date.now()) {
+    if (r && r.blockedUntil > Date.now()) {
       const mins = Math.ceil((r.blockedUntil - Date.now()) / 60_000);
-      return { allowed: false, msg: `محظور لمدة ${mins} دقيقة` };
+      return { allowed: false, msg: "محظور لمدة " + mins + " دقيقة" };
     }
     return { allowed: true };
   },
@@ -62,7 +71,7 @@ export const RateLimiter = {
     if (!attempts[key]) attempts[key] = { count: 0 };
     attempts[key].count++;
     if (attempts[key].count >= 3) {
-      attempts[key].blockedUntil = Date.now() + 3_600_000; // ساعة
+      attempts[key].blockedUntil = Date.now() + 3_600_000;
       attempts[key].count = 0;
     }
   },
