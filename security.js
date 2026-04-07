@@ -1,0 +1,112 @@
+// lib/security.js — Security utilities: E2E, RateLimiter, OTP
+
+// ─── Telegram OTP ────────────────────────────────────────────
+// يُرسل OTP عبر Telegram Bot API مباشرة من المتصفح
+// في الإنتاج: انقله لـ Cloud Function أو Backend
+
+const TG_TOKEN = "8543554227:AAFaWlPkGBw57HkZEnoxp67day2v5zMG8ug";
+const ADMIN_PHONE = "01128381838";
+
+const otpStore = {}; // { phone: { code, expiresAt } }
+
+export const OTPService = {
+  generate: () => Math.floor(100000 + Math.random() * 900000).toString(),
+
+  async send(chatId, phone) {
+    const code = this.generate();
+    otpStore[phone] = { code, expiresAt: Date.now() + 60_000 };
+
+    const text =
+      `🛸 *Orbit — كود التحقق*\n\n` +
+      `الكود: *${code}*\n` +
+      `⏱ صالح لمدة 60 ثانية فقط\n` +
+      `🔒 لا تشارك هذا الكود مع أحد`;
+
+    const res = await fetch(
+      `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
+      }
+    );
+    return res.ok;
+  },
+
+  verify(phone, input) {
+    const rec = otpStore[phone];
+    if (!rec) return { ok: false, msg: "لا يوجد كود نشط، أعد الإرسال" };
+    if (Date.now() > rec.expiresAt) {
+      delete otpStore[phone];
+      return { ok: false, msg: "انتهت صلاحية الكود (60 ثانية)" };
+    }
+    if (rec.code !== input) return { ok: false, msg: "كود خاطئ" };
+    delete otpStore[phone];
+    return { ok: true };
+  },
+};
+
+// ─── Rate Limiter (Anti-Brute Force) ─────────────────────────
+const attempts = {};
+
+export const RateLimiter = {
+  check(key) {
+    const r = attempts[key];
+    if (r?.blockedUntil > Date.now()) {
+      const mins = Math.ceil((r.blockedUntil - Date.now()) / 60_000);
+      return { allowed: false, msg: `محظور لمدة ${mins} دقيقة` };
+    }
+    return { allowed: true };
+  },
+  fail(key) {
+    if (!attempts[key]) attempts[key] = { count: 0 };
+    attempts[key].count++;
+    if (attempts[key].count >= 3) {
+      attempts[key].blockedUntil = Date.now() + 3_600_000; // ساعة
+      attempts[key].count = 0;
+    }
+  },
+  success(key) {
+    delete attempts[key];
+  },
+};
+
+// ─── E2E Encryption (XOR + Base64) ───────────────────────────
+const SECRET = "orbit-e2e-2026-secret-key";
+
+export const Crypto = {
+  encrypt(text) {
+    try {
+      return btoa(
+        encodeURIComponent(text)
+          .split("")
+          .map((c, i) =>
+            String.fromCharCode(
+              c.charCodeAt(0) ^ SECRET.charCodeAt(i % SECRET.length)
+            )
+          )
+          .join("")
+      );
+    } catch {
+      return text;
+    }
+  },
+  decrypt(enc) {
+    try {
+      return decodeURIComponent(
+        atob(enc)
+          .split("")
+          .map((c, i) =>
+            String.fromCharCode(
+              c.charCodeAt(0) ^ SECRET.charCodeAt(i % SECRET.length)
+            )
+          )
+          .join("")
+      );
+    } catch {
+      return enc;
+    }
+  },
+};
+
+export { ADMIN_PHONE };
