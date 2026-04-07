@@ -1,6 +1,6 @@
 // lib/cloudinary.js — رفع الصور والفيديوهات لـ Cloudinary
 
-const CLOUD_NAME = "dskq7n2y7";
+const CLOUD_NAME = "dkfmfntpa";
 const UPLOAD_PRESET = "orbit_unsigned"; // أنشئ unsigned preset في Cloudinary Dashboard
 
 export async function uploadMedia(file, folder = "orbit/posts") {
