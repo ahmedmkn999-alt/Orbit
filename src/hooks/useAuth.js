@@ -2,7 +2,6 @@
 
 import { useState, useEffect, createContext, useContext } from "react";
 import {
-  signInWithCustomToken,
   signOut,
   onAuthStateChanged,
   updateProfile,
