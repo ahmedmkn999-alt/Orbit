@@ -26,6 +26,7 @@ export default function AdvancedAuthScreen() {
   });
   
   const [previewImage, setPreviewImage] = useState(null);
+  const [verifiedUser, setVerifiedUser] = useState(null); // حفظ الـ user بعد التحقق
   const fileInputRef = useRef(null);
 
   // Step 1: Phone Number
@@ -62,6 +63,7 @@ export default function AdvancedAuthScreen() {
     const result = await verifyOTP(otp);
     
     if (result.success) {
+      setVerifiedUser(result.user); // ✅ حفظ الـ user الصح
       if (result.isNewUser) {
         setStep(3); // Go to profile setup
       } else {
@@ -101,7 +103,7 @@ export default function AdvancedAuthScreen() {
       let profilePictureUrl = null;
       if (profileData.profilePicture) {
         const uploadResult = await uploadProfilePicture(
-          verifyOTP.user.uid,
+          verifiedUser.uid, // ✅ إصلاح: كان verifyOTP.user.uid وده غلط
           profileData.profilePicture
         );
         if (uploadResult.success) {
@@ -110,7 +112,7 @@ export default function AdvancedAuthScreen() {
       }
       
       // Create user profile
-      const result = await createUserProfile(verifyOTP.user.uid, {
+      const result = await createUserProfile(verifiedUser.uid, { // ✅ إصلاح هنا كمان
         name: profileData.name,
         phoneNumber: phoneNumber,
         birthDate: profileData.birthDate,
