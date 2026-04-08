@@ -36,12 +36,14 @@ export const AuthProvider = ({ children }) => {
     // Listen to auth state changes
     const unsubscribe = onAuthChange(async ({ user: firebaseUser, profile: userProfile }) => {
       if (firebaseUser) {
-        // Check if user is banned
-        const status = await checkUserStatus(firebaseUser.uid);
-        if (status.isBanned) {
-          await handleLogout();
-          setError(`Account banned: ${status.reason}`);
-          return;
+        // Only check ban status if user has a profile (existing user)
+        if (userProfile) {
+          const status = await checkUserStatus(firebaseUser.uid);
+          if (status.isBanned) {
+            await handleLogout();
+            setError(`Account banned: ${status.reason}`);
+            return;
+          }
         }
 
         setUser(firebaseUser);
