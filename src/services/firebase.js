@@ -17,6 +17,7 @@ import {
   setDoc, 
   getDoc, 
   updateDoc,
+  addDoc,
   collection,
   query,
   where,
@@ -59,18 +60,23 @@ let confirmationResult = null;
 
 export const initRecaptcha = (elementId = 'recaptcha-container') => {
   try {
-    if (!recaptchaVerifier) {
-      recaptchaVerifier = new RecaptchaVerifier(auth, elementId, {
-        size: 'invisible',
-        callback: () => {
-          console.log('reCAPTCHA solved');
-        },
-        'expired-callback': () => {
-          console.log('reCAPTCHA expired');
-          recaptchaVerifier = null;
-        }
-      });
+    // Clear old verifier if exists
+    if (recaptchaVerifier) {
+      try { recaptchaVerifier.clear(); } catch (_) {}
+      recaptchaVerifier = null;
     }
+
+    recaptchaVerifier = new RecaptchaVerifier(auth, elementId, {
+      size: 'invisible',
+      callback: () => {
+        console.log('reCAPTCHA solved');
+      },
+      'expired-callback': () => {
+        console.log('reCAPTCHA expired');
+        recaptchaVerifier = null;
+      }
+    });
+
     return recaptchaVerifier;
   } catch (error) {
     console.error('Error initializing reCAPTCHA:', error);
@@ -80,39 +86,53 @@ export const initRecaptcha = (elementId = 'recaptcha-container') => {
 
 export const sendOTP = async (phoneNumber) => {
   try {
-    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+20${phoneNumber}`;
+    // Format: if starts with 0 replace with +20, else if no + add +20
+    let formattedPhone = phoneNumber.trim();
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '+2' + formattedPhone;
+    } else if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+20' + formattedPhone;
+    }
+
     const appVerifier = initRecaptcha();
-    
     if (!appVerifier) {
-      throw new Error('Failed to initialize reCAPTCHA');
+      throw new Error('فشل تهيئة reCAPTCHA. يرجى تحديث الصفحة والمحاولة مرة أخرى');
     }
 
     confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
-    return { success: true, message: 'OTP sent successfully' };
+    return { success: true, message: 'تم إرسال الكود بنجاح' };
   } catch (error) {
     console.error('Error sending OTP:', error);
     
     // Reset reCAPTCHA on error
     if (recaptchaVerifier) {
-      recaptchaVerifier.clear();
+      try { recaptchaVerifier.clear(); } catch (_) {}
       recaptchaVerifier = null;
     }
+
+    // User-friendly error messages in Arabic
+    let message = 'فشل إرسال الرمز. يرجى المحاولة مرة أخرى';
+    if (error.code === 'auth/invalid-phone-number') {
+      message = 'رقم الهاتف غير صحيح. تأكد من الصيغة الصحيحة';
+    } else if (error.code === 'auth/too-many-requests') {
+      message = 'محاولات كثيرة جداً. يرجى الانتظار قليلاً والمحاولة مجدداً';
+    } else if (error.code === 'auth/quota-exceeded') {
+      message = 'تجاوز الحد المسموح. يرجى المحاولة لاحقاً';
+    } else if (error.code === 'auth/captcha-check-failed') {
+      message = 'فشل التحقق. يرجى تحديث الصفحة والمحاولة مرة أخرى';
+    }
     
-    return { 
-      success: false, 
-      message: error.message || 'Failed to send OTP',
-      code: error.code 
-    };
+    return { success: false, message, code: error.code };
   }
 };
 
 export const verifyOTP = async (otp) => {
   try {
     if (!confirmationResult) {
-      throw new Error('No confirmation result available');
+      throw new Error('لم يتم إرسال الرمز بعد. يرجى طلب رمز جديد');
     }
 
-    const result = await confirmationResult.confirm(otp);
+    const result = await confirmationResult.confirm(otp.trim());
     const user = result.user;
     
     // Check if user exists in database
@@ -126,11 +146,13 @@ export const verifyOTP = async (otp) => {
     };
   } catch (error) {
     console.error('Error verifying OTP:', error);
-    return { 
-      success: false, 
-      message: 'Invalid OTP code',
-      code: error.code 
-    };
+    let message = 'الرمز غير صحيح. يرجى المحاولة مرة أخرى';
+    if (error.code === 'auth/code-expired') {
+      message = 'انتهت صلاحية الرمز. يرجى طلب رمز جديد';
+    } else if (error.code === 'auth/invalid-verification-code') {
+      message = 'رمز التحقق غير صحيح';
+    }
+    return { success: false, message, code: error.code };
   }
 };
 
@@ -148,6 +170,7 @@ export const createUserProfile = async (uid, profileData) => {
       accountStatus: 'active',
       role: 'user',
       verified: false,
+      friends: [],
       settings: {
         language: 'ar',
         theme: 'dark',
@@ -218,11 +241,19 @@ export const logout = async () => {
   try {
     const user = auth.currentUser;
     if (user) {
-      // Update online status before logout
-      await updateDoc(doc(db, 'users', user.uid), {
-        isOnline: false,
-        lastActive: serverTimestamp()
-      });
+      // Update online status before logout (ignore errors)
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          await updateDoc(userRef, {
+            isOnline: false,
+            lastActive: serverTimestamp()
+          });
+        }
+      } catch (e) {
+        console.warn('Could not update offline status:', e);
+      }
     }
     await signOut(auth);
     return { success: true };
@@ -236,15 +267,25 @@ export const logout = async () => {
 export const onAuthChange = (callback) => {
   return onAuthStateChanged(auth, async (user) => {
     if (user) {
-      // Update online status
-      await updateDoc(doc(db, 'users', user.uid), {
-        isOnline: true,
-        lastActive: serverTimestamp()
-      });
-      
-      // Get user profile data
-      const profile = await getUserProfile(user.uid);
-      callback({ user, profile: profile.data });
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          // Update online status only if doc exists
+          await updateDoc(userRef, {
+            isOnline: true,
+            lastActive: serverTimestamp()
+          });
+          callback({ user, profile: userSnap.data() });
+        } else {
+          // New user - no profile yet
+          callback({ user, profile: null });
+        }
+      } catch (error) {
+        console.error('onAuthChange error:', error);
+        callback({ user, profile: null });
+      }
     } else {
       callback({ user: null, profile: null });
     }
@@ -264,10 +305,11 @@ export const checkUserStatus = async (uid) => {
         reason: data.banReason || null
       };
     }
-    return { success: false, message: 'User not found' };
+    return { success: true, isBanned: false };
   } catch (error) {
-    return { success: false, message: error.message };
+    return { success: false, isBanned: false, message: error.message };
   }
 };
 
 export { auth, db, storage };
+      
