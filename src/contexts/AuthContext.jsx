@@ -1,14 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  sendOTP, 
-  verifyOTP, 
-  logout as firebaseLogout,
-  onAuthChange,
-  getUserProfile,
-  updateUserProfile,
-  checkUserStatus
-} from '../services/firebase';
 import { setSecureItem, getSecureItem, removeSecureItem } from '../utils/encryption';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const AuthContext = createContext();
 
@@ -27,98 +20,180 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check for cached user
-    const cachedUser = getSecureItem('orbit_user');
-    if (cachedUser) {
-      setUser(cachedUser);
-    }
-
-    // Listen to auth state changes
-    const unsubscribe = onAuthChange(async ({ user: firebaseUser, profile: userProfile }) => {
-      if (firebaseUser) {
-        // Only check ban status if user has a profile (existing user)
-        if (userProfile) {
-          const status = await checkUserStatus(firebaseUser.uid);
-          if (status.isBanned) {
-            await handleLogout();
-            setError(`Account banned: ${status.reason}`);
-            return;
-          }
-        }
-
-        setUser(firebaseUser);
-        setProfile(userProfile);
-        setSecureItem('orbit_user', firebaseUser);
-      } else {
-        setUser(null);
-        setProfile(null);
-        removeSecureItem('orbit_user');
-      }
+    // Check for cached session
+    const cachedToken = getSecureItem('orbit_session');
+    if (cachedToken) {
+      verifySession(cachedToken);
+    } else {
       setLoading(false);
-    });
-
-    return () => unsubscribe();
+    }
   }, []);
 
-  const handleSendOTP = async (phoneNumber) => {
-    setError(null);
-    setLoading(true);
+  const verifySession = async (sessionToken) => {
     try {
-      const result = await sendOTP(phoneNumber);
+      const response = await fetch(`${API_URL}/auth/verify-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionToken })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setUser(data.user);
+        setProfile(data.user);
+      } else {
+        removeSecureItem('orbit_session');
+        setUser(null);
+        setProfile(null);
+      }
+    } catch (err) {
+      console.error('Session verification error:', err);
+      removeSecureItem('orbit_session');
+    } finally {
       setLoading(false);
-      return result;
-    } catch (error) {
-      setError(error.message);
-      setLoading(false);
-      return { success: false, message: error.message };
     }
   };
 
-  const handleVerifyOTP = async (otp) => {
+  const requestOTP = async (phoneNumber) => {
     setError(null);
     setLoading(true);
+    
     try {
-      const result = await verifyOTP(otp);
+      const response = await fetch(`${API_URL}/auth/request-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber })
+      });
+      
+      const data = await response.json();
       setLoading(false);
-      return result;
-    } catch (error) {
-      setError(error.message);
+      return data;
+    } catch (err) {
+      setError(err.message);
       setLoading(false);
-      return { success: false, message: error.message };
+      return { success: false, message: 'فشل الاتصال بالخادم' };
     }
   };
 
-  const handleLogout = async () => {
+  const verifyOTP = async (phoneNumber, otp, password, isNewUser, profileData) => {
     setError(null);
     setLoading(true);
+    
     try {
-      await firebaseLogout();
+      const response = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          phoneNumber, 
+          otp, 
+          password, 
+          isNewUser, 
+          profileData 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setUser(data.user);
+        setProfile(data.user);
+        setSecureItem('orbit_session', data.sessionToken);
+      }
+      
+      setLoading(false);
+      return data;
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+      return { success: false, message: 'فشل الاتصال بالخادم' };
+    }
+  };
+
+  const loginWithPassword = async (phoneNumber, password) => {
+    setError(null);
+    setLoading(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/auth/login-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, password })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setUser(data.user);
+        setProfile(data.user);
+        setSecureItem('orbit_session', data.sessionToken);
+      }
+      
+      setLoading(false);
+      return data;
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+      return { success: false, message: 'فشل الاتصال بالخادم' };
+    }
+  };
+
+  const forgotPassword = async (phoneNumber) => {
+    setError(null);
+    setLoading(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber })
+      });
+      
+      const data = await response.json();
+      setLoading(false);
+      return data;
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+      return { success: false, message: 'فشل الاتصال بالخادم' };
+    }
+  };
+
+  const resetPassword = async (phoneNumber, otp, newPassword) => {
+    setError(null);
+    setLoading(true);
+    
+    try {
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, otp, newPassword })
+      });
+      
+      const data = await response.json();
+      setLoading(false);
+      return data;
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+      return { success: false, message: 'فشل الاتصال بالخادم' };
+    }
+  };
+
+  const logout = async () => {
+    setError(null);
+    setLoading(true);
+    
+    try {
       setUser(null);
       setProfile(null);
-      removeSecureItem('orbit_user');
+      removeSecureItem('orbit_session');
       setLoading(false);
       return { success: true };
-    } catch (error) {
-      setError(error.message);
+    } catch (err) {
+      setError(err.message);
       setLoading(false);
-      return { success: false, message: error.message };
-    }
-  };
-
-  const updateProfile = async (updates) => {
-    setError(null);
-    try {
-      if (!user) throw new Error('No user logged in');
-      const result = await updateUserProfile(user.uid, updates);
-      if (result.success) {
-        // Refresh profile
-        const updatedProfile = await getUserProfile(user.uid);
-        setProfile(updatedProfile.data);
-      }
-      return result;
-    } catch (error) {
-      setError(error.message);
-      return { success: false, message: error.message };
+      return { success: false, message: err.message };
     }
   };
 
@@ -127,10 +202,12 @@ export const AuthProvider = ({ children }) => {
     profile,
     loading,
     error,
-    sendOTP: handleSendOTP,
-    verifyOTP: handleVerifyOTP,
-    logout: handleLogout,
-    updateProfile,
+    requestOTP,
+    verifyOTP,
+    loginWithPassword,
+    forgotPassword,
+    resetPassword,
+    logout,
     isAuthenticated: !!user,
     isAdmin: profile?.role === 'admin'
   };
