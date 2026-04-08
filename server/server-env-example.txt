@@ -1,0 +1,8 @@
+# Server Configuration
+PORT=3000
+
+# Telegram Bot
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+
+# Firebase Admin SDK (paste the entire service account JSON as a single line)
+FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"your-project-id",...}
