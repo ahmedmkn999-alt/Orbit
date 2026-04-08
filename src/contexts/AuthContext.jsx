@@ -27,12 +27,16 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthChange(({ user, profile }) => {
-      setUser(user);
-      setProfile(profile);
+    // Check localStorage first for our local auth
+    const savedUser = localStorage.getItem('orbit_user');
+    const savedProfile = localStorage.getItem('orbit_profile');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+      if (savedProfile) setProfile(JSON.parse(savedProfile));
       setLoading(false);
-    });
-    return () => unsubscribe();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   // Step 1: Send OTP via Firebase Phone Auth
@@ -68,17 +72,22 @@ export const AuthProvider = ({ children }) => {
         const profileResult = await getUserProfile(fakeUid);
         setUser(fakeUser);
         setProfile(profileResult.data);
+        localStorage.setItem('orbit_user', JSON.stringify(fakeUser));
+        if (profileResult.data) localStorage.setItem('orbit_profile', JSON.stringify(profileResult.data));
       } else {
         const profileResult = await getUserProfile(fakeUid);
         if (profileResult.success) {
           setUser(fakeUser);
           setProfile(profileResult.data);
+          localStorage.setItem('orbit_user', JSON.stringify(fakeUser));
+          if (profileResult.data) localStorage.setItem('orbit_profile', JSON.stringify(profileResult.data));
         } else {
           setLoading(false);
           return { success: false, isNewUser: true };
         }
       }
 
+      localStorage.setItem('orbit_user', JSON.stringify(fakeUser));
       setLoading(false);
       return { success: true, isNewUser: isNewUser || false };
     } catch (err) {
@@ -107,12 +116,11 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     setError(null);
-    const result = await firebaseLogout();
-    if (result.success) {
-      setUser(null);
-      setProfile(null);
-    }
-    return result;
+    localStorage.removeItem('orbit_user');
+    localStorage.removeItem('orbit_profile');
+    setUser(null);
+    setProfile(null);
+    return { success: true };
   };
 
   const value = {
@@ -134,4 +142,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 export default AuthContext;
-  
+
