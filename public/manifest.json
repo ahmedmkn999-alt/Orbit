@@ -7,9 +7,17 @@
   "background_color": "#0a0118",
   "theme_color": "#00f5ff",
   "orientation": "portrait",
+  "lang": "ar",
+  "dir": "rtl",
   "icons": [
     {
-      "src": "https://i.postimg.cc/0NMDydFQ/IMG_٢٠٢٦٠٤٠٧_٠٠٠٨٢٥.png",
+      "src": "https://i.postimg.cc/0NMDydFQ/IMG_%D9%A2%D9%A0%D9%A2%D9%A6%D9%A0%D9%A4%D9%A0%D9%A7_%D9%A0%D9%A0%D9%A0%D9%A8%D9%A2%D9%A5.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://i.postimg.cc/0NMDydFQ/IMG_%D9%A2%D9%A0%D9%A2%D9%A6%D9%A0%D9%A4%D9%A0%D9%A7_%D9%A0%D9%A0%D9%A0%D9%A8%D9%A2%D9%A5.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -20,10 +28,12 @@
     {
       "name": "الرسائل",
       "url": "/chat",
-      "icons": [{ 
-        "src": "https://i.postimg.cc/0NMDydFQ/IMG_٢٠٢٦٠٤٠٧_٠٠٠٨٢٥.png", 
-        "sizes": "96x96" 
-      }]
+      "icons": [
+        {
+          "src": "https://i.postimg.cc/5tYL2qTt/IMG_%D9%A2%D9%A0%D9%A2%D9%A6%D9%A0%D9%A4%D9%A0%D9%A7_%D9%A0%D9%A0%D9%A0%D9%A8%D9%A4%D9%A4.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ],
   "prefer_related_applications": false
