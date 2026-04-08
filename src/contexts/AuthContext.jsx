@@ -59,6 +59,9 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     setLoading(true);
     
+    console.log('🔵 Requesting OTP for:', phoneNumber);
+    console.log('🔵 API URL:', API_URL);
+    
     try {
       const response = await fetch(`${API_URL}/auth/request-otp`, {
         method: 'POST',
@@ -66,13 +69,25 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ phoneNumber })
       });
       
+      console.log('🔵 Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
+      console.log('🔵 Response data:', data);
+      
       setLoading(false);
       return data;
     } catch (err) {
+      console.error('🔴 Error in requestOTP:', err);
       setError(err.message);
       setLoading(false);
-      return { success: false, message: 'فشل الاتصال بالخادم' };
+      return { 
+        success: false, 
+        message: `فشل الاتصال بالخادم: ${err.message}\nتأكد من تشغيل Backend على المنفذ 3000` 
+      };
     }
   };
 
@@ -216,3 +231,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 export default AuthContext;
+    
