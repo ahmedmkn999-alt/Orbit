@@ -50,32 +50,37 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Step 2: Verify OTP
+  // Step 2: Verify OTP - محلي بدون Firebase SMS
   const verifyOTP = async (phoneNumber, otp, password, isNewUser, profileData) => {
     setError(null);
     setLoading(true);
     try {
-      const result = await firebaseVerifyOTP(otp);
+      // التحقق تم محلياً في AdvancedAuthScreen
+      // هنا بس نحفظ بيانات المستخدم في Firestore
+      const fakeUid = phoneNumber.replace(/\D/g, '');
+      const fakeUser = { uid: fakeUid, phoneNumber };
 
-      if (result.success) {
-        setUser(result.user);
-
-        if (result.isNewUser && profileData) {
-          // Create profile for new users
-          await createUserProfile(result.user.uid, {
-            ...profileData,
-            phoneNumber,
-            password: undefined // لا تخزن كلمة المرور
-          });
-          const profileResult = await getUserProfile(result.user.uid);
+      if (isNewUser && profileData) {
+        await createUserProfile(fakeUid, {
+          ...profileData,
+          phoneNumber,
+        });
+        const profileResult = await getUserProfile(fakeUid);
+        setUser(fakeUser);
+        setProfile(profileResult.data);
+      } else {
+        const profileResult = await getUserProfile(fakeUid);
+        if (profileResult.success) {
+          setUser(fakeUser);
           setProfile(profileResult.data);
-        } else if (result.userData) {
-          setProfile(result.userData);
+        } else {
+          setLoading(false);
+          return { success: false, isNewUser: true };
         }
       }
 
       setLoading(false);
-      return result;
+      return { success: true, isNewUser: isNewUser || false };
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -129,4 +134,3 @@ export const AuthProvider = ({ children }) => {
 };
 
 export default AuthContext;
-        
